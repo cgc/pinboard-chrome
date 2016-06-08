@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react';
 import { connect } from 'react-redux';
-import { login, fetchActiveTabStatus, save, saveAll } from './actions';
+import { login, fetchActiveTabStatus, saveAll, saveActiveTab } from './actions';
 
 const styles = {
   main: {
@@ -50,7 +50,7 @@ const WrappedLogin = connect(store => ({
 
 const Bookmark = React.createClass({
   propTypes: {
-    save: PropTypes.func.isRequired,
+    saveActiveTab: PropTypes.func.isRequired,
     saveAll: PropTypes.func.isRequired,
     fetchActiveTabStatus: PropTypes.func.isRequired,
     urlLoading: PropTypes.bool.isRequired,
@@ -61,12 +61,9 @@ const Bookmark = React.createClass({
     this.props.fetchActiveTabStatus();
   },
 
-  _save() {
-    this.props.save(this.props.url);
-  },
-
   render() {
     const {
+      saveActiveTab,
       saveAll,
       savedAll,
       urlLoading,
@@ -79,7 +76,7 @@ const Bookmark = React.createClass({
     const saveAllLabel = savedAll ? 'saved all' : 'save all';
 
     return (<div>
-      <button onClick={ this._save } disabled={ saveDisabled }>{ saveLabel }</button>
+      <button onClick={ saveActiveTab } disabled={ saveDisabled }>{ saveLabel }</button>
       <button onClick={ saveAll } disabled={ savedAll }>{ saveAllLabel }</button>
     </div>);
   },
@@ -96,11 +93,11 @@ const WrappedBookmark = connect(store => {
   fetchActiveTabStatus() {
     dispatch(fetchActiveTabStatus());
   },
-  save(url) {
-    dispatch(save(url));
-  },
   saveAll() {
     dispatch(saveAll());
+  },
+  saveActiveTab() {
+    dispatch(saveActiveTab());
   },
 }))(Bookmark);
 

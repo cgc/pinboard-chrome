@@ -132,12 +132,13 @@ export function pinboardSave(token, { url, title }) {
   });
 }
 
-export function save({ url, title }) {
+export function saveActiveTab() {
   return (dispatch, getState) => {
-    const { token } = getState();
-    const promise = pinboardSave(token, { url, title }).then(() => {
+    const { token, tabs } = getState();
+    const tab = tabs.find(tab => tab.active);
+    const promise = pinboardSave(token, tab).then(() => {
       dispatch(HAS_POSTS({
-        url,
+        url: tab.url,
         saved: true,
       }));
     });
