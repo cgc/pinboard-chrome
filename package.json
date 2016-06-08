@@ -30,6 +30,7 @@
     "reduce-reducers": "^0.1.2",
     "redux": "^3.5.2",
     "redux-actions": "^0.9.1",
-    "redux-thunk": "^2.1.0"
+    "redux-thunk": "^2.1.0",
+    "throat": "^3.0.0"
   }
 }

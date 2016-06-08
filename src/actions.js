@@ -1,13 +1,18 @@
 import { createAction } from 'redux-actions';
 import { stringify } from 'querystring';
 import invariant from 'invariant';
+import throat from 'throat';
+
+const pinboardLimiter = throat(2);
 
 function pinboard(path, queryArg={}) {
   const query = {
     format: 'json',
     ...queryArg,
   };
-  let f = fetch(`https://api.pinboard.in/v1${ path }?${ stringify(query) }`);
+  let f = pinboardLimiter(() =>
+    fetch(`https://api.pinboard.in/v1${ path }?${ stringify(query) }`)
+  );
   if (query.format === 'json') {
     f = f.then(response => response.json()).then(body => {
       const code = body.result_code;
@@ -44,6 +49,7 @@ export const NOT_LOADING = createAction('NOT_LOADING');
 export const URL_LOADED = createAction('URL_LOADED');
 export const HAS_POSTS = createAction('HAS_POSTS');
 export const LOAD_TAB_STATE = createAction('LOAD_TAB_STATE');
+export const SAVED_ALL = createAction('SAVED_ALL');
 
 function loading(dispatch, stateKey, promiseCreator) {
   function done() {
@@ -136,5 +142,23 @@ export function save({ url, title }) {
       }));
     });
     loading(dispatch, 'urlLoading', () => promise)();
+  };
+}
+
+export function saveAll() {
+  return (dispatch, getState) => {
+    const { token, tabs } = getState();
+    const saves = tabs.map(tab => {
+      return dispatch(fetchURLSavedStatus(tab.url)).then(() => {
+        if (getState().savedURLs[tab.url]) {
+          return;
+        }
+        return pinboardSave(token, tab);
+      });
+    });
+    // XXX loading
+    Promise.all(saves).then(() => {
+      dispatch(SAVED_ALL());
+    });
   };
 }

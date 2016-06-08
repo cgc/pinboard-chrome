@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react';
 import { connect } from 'react-redux';
-import { login, fetchActiveTabStatus, save } from './actions';
+import { login, fetchActiveTabStatus, save, saveAll } from './actions';
 
 const styles = {
   main: {
@@ -68,6 +68,7 @@ const Bookmark = React.createClass({
   render() {
     const {
       saveAll,
+      savedAll,
       urlLoading,
       activeTabSaved,
     } = this.props;
@@ -75,9 +76,11 @@ const Bookmark = React.createClass({
     const saveDisabled = activeTabSaved || urlLoading;
     const saveLabel = activeTabSaved ? 'saved' : urlLoading ? '...' : 'save';
 
+    const saveAllLabel = savedAll ? 'saved all' : 'save all';
+
     return (<div>
       <button onClick={ this._save } disabled={ saveDisabled }>{ saveLabel }</button>
-      <button onClick={ saveAll }>Save All</button>
+      <button onClick={ saveAll } disabled={ savedAll }>{ saveAllLabel }</button>
     </div>);
   },
 });
@@ -87,6 +90,7 @@ const WrappedBookmark = connect(store => {
   return {
     urlLoading: store.urlLoading,
     activeTabSaved: store.savedURLs[activeTab.url],
+    savedAll: store.savedAll,
   };
 }, dispatch => ({
   fetchActiveTabStatus() {
@@ -94,6 +98,9 @@ const WrappedBookmark = connect(store => {
   },
   save(url) {
     dispatch(save(url));
+  },
+  saveAll() {
+    dispatch(saveAll());
   },
 }))(Bookmark);
 

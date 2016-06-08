@@ -46,10 +46,18 @@ const reducer = handleActions({
       tabs: action.payload,
     };
   },
+
+  SAVED_ALL(state) {
+    return {
+      ...state,
+      savedAll: true,
+    };
+  },
 }, {
   loginLoading: false,
   urlLoading: false,
   savedURLs: {},
+  savedAll: false,
 });
 
 export default reducer;
