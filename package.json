@@ -1,0 +1,35 @@
+{
+  "name": "pinboard-chrome",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "webpack --progress --colors --watch",
+    "build": "webpack --progress --colors",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-core": "^6.9.1",
+    "babel-loader": "^6.2.4",
+    "babel-plugin-transform-es2015-destructuring": "^6.9.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.8.0",
+    "babel-plugin-transform-es2015-shorthand-properties": "^6.8.0",
+    "babel-plugin-transform-object-rest-spread": "^6.8.0",
+    "babel-preset-react": "^6.5.0",
+    "hjs-webpack": "^8.2.0",
+    "webpack": "^1.13.1"
+  },
+  "dependencies": {
+    "invariant": "^2.2.1",
+    "open-iconic": "^1.1.1",
+    "react": "^15.1.0",
+    "react-dom": "^15.1.0",
+    "react-redux": "^4.4.5",
+    "reduce-reducers": "^0.1.2",
+    "redux": "^3.5.2",
+    "redux-actions": "^0.9.1",
+    "redux-thunk": "^2.1.0"
+  }
+}

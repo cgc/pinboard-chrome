@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+
+  "name": "Pinboard Lite",
+  "description": "This extension is a lightweight way to save things to pinboard",
+  "version": "1.0",
+
+  "browser_action": {
+    "default_icon": "node_modules/open-iconic/png/pin-2x.png",
+    "default_popup": "dist/index.html"
+  },
+  "permissions": [
+    "tabs",
+    "https://api.pinboard.in/"
+  ],
+  "web_accessible_resources": [
+    "dist/*"
+  ]
+}
