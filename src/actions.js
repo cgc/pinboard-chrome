@@ -42,6 +42,8 @@ export const LOGOUT = createAction('LOGOUT');
 export const LOADING = createAction('LOADING');
 export const NOT_LOADING = createAction('NOT_LOADING');
 export const URL_LOADED = createAction('URL_LOADED');
+export const HAS_POSTS = createAction('HAS_POSTS');
+export const LOAD_TAB_STATE = createAction('LOAD_TAB_STATE');
 
 function loading(dispatch, stateKey, promiseCreator) {
   function done() {
@@ -67,19 +69,40 @@ export function login(token) {
   };
 }
 
-export function fetchURLStatus() {
-  return (dispatch, getState) => {
-    const { token } = getState();
-    chrome.tabs.query({currentWindow: true, active: true}, function(tabs){
-      const tab = tabs[0];
-      loading(dispatch, 'urlLoading', hasPosts)(token, tab.url).then(urlHasPosts => {
-        dispatch(URL_LOADED({
-          url: tab.url,
-          title: tab.title,
-          saved: urlHasPosts,
-        }));
-      });
+export function loadTabState() {
+  return (dispatch) => {
+    chrome.tabs.query({currentWindow: true}, function(tabs) {
+      dispatch(LOAD_TAB_STATE(tabs.map(tab => ({
+        id: tab.id,
+        url: tab.url,
+        title: tab.title,
+        active: tab.active,
+      }))));
     });
+  };
+};
+
+export function fetchURLSavedStatus(url) {
+  return (dispatch, getState) => {
+    const { token, savedURLs } = getState();
+    if (url in savedURLs) {
+      return Promise.resolve(savedURLs[url]);
+    }
+    return loading(dispatch, 'urlLoading', hasPosts)(token, url).then(urlHasPosts => {
+      dispatch(HAS_POSTS({
+        url: url,
+        saved: urlHasPosts,
+      }));
+      return urlHasPosts;
+    });
+  };
+}
+
+export function fetchActiveTabStatus() {
+  return (dispatch, getState) => {
+    const { token, tabs } = getState();
+    const tab = tabs.find(tab => tab.active);
+    dispatch(fetchURLSavedStatus(tab.url));
   };
 }
 
@@ -107,9 +130,8 @@ export function save({ url, title }) {
   return (dispatch, getState) => {
     const { token } = getState();
     const promise = pinboardSave(token, { url, title }).then(() => {
-      dispatch(URL_LOADED({
+      dispatch(HAS_POSTS({
         url,
-        title,
         saved: true,
       }));
     });

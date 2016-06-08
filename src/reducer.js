@@ -29,15 +29,27 @@ const reducer = handleActions({
     };
   },
 
-  URL_LOADED(state, action) {
+  HAS_POSTS(state, action) {
+    const { url, saved } = action.payload;
     return {
       ...state,
-      url: action.payload,
+      savedURLs: {
+        ...state.savedURLs,
+        [url]: saved,
+      },
+    };
+  },
+
+  LOAD_TAB_STATE(state, action) {
+    return {
+      ...state,
+      tabs: action.payload,
     };
   },
 }, {
   loginLoading: false,
   urlLoading: false,
+  savedURLs: {},
 });
 
 export default reducer;

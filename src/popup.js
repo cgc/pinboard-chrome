@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react';
 import { connect } from 'react-redux';
-import { login, fetchURLStatus, save } from './actions';
+import { login, fetchActiveTabStatus, save } from './actions';
 
 const styles = {
   main: {
@@ -52,13 +52,13 @@ const Bookmark = React.createClass({
   propTypes: {
     save: PropTypes.func.isRequired,
     saveAll: PropTypes.func.isRequired,
-    fetchURLStatus: PropTypes.func.isRequired,
+    fetchActiveTabStatus: PropTypes.func.isRequired,
     urlLoading: PropTypes.bool.isRequired,
-    url: PropTypes.object.isRequired,
+    activeTabSaved: PropTypes.bool,
   },
 
   componentWillMount() {
-    this.props.fetchURLStatus();
+    this.props.fetchActiveTabStatus();
   },
 
   _save() {
@@ -69,13 +69,11 @@ const Bookmark = React.createClass({
     const {
       saveAll,
       urlLoading,
-      url,
+      activeTabSaved,
     } = this.props;
 
-    const urlSaved = url && url.saved;
-
-    const saveDisabled = urlSaved || urlLoading;
-    const saveLabel = urlSaved ? 'saved' : urlLoading ? '...' : 'save';
+    const saveDisabled = activeTabSaved || urlLoading;
+    const saveLabel = activeTabSaved ? 'saved' : urlLoading ? '...' : 'save';
 
     return (<div>
       <button onClick={ this._save } disabled={ saveDisabled }>{ saveLabel }</button>
@@ -84,12 +82,15 @@ const Bookmark = React.createClass({
   },
 });
 
-const WrappedBookmark = connect(store => ({
-  urlLoading: store.urlLoading,
-  url: store.url,
-}), dispatch => ({
-  fetchURLStatus() {
-    dispatch(fetchURLStatus());
+const WrappedBookmark = connect(store => {
+  const activeTab = store.tabs.find(tab => tab.active);
+  return {
+    urlLoading: store.urlLoading,
+    activeTabSaved: store.savedURLs[activeTab.url],
+  };
+}, dispatch => ({
+  fetchActiveTabStatus() {
+    dispatch(fetchActiveTabStatus());
   },
   save(url) {
     dispatch(save(url));
@@ -103,10 +104,16 @@ const Popup = React.createClass({
 
   render() {
     let main;
-    if (this.props.token) {
-      main = <WrappedBookmark />;
-    } else {
+    const {
+      tabs,
+      token,
+    } = this.props;
+    if (!token) {
       main = <WrappedLogin />;
+    } else if (!tabs) {
+      main = <div></div>;
+    } else {
+      main = <WrappedBookmark />;
     }
     return <div style={ styles.main }>{ main }</div>;
   },
@@ -114,4 +121,5 @@ const Popup = React.createClass({
 
 export const PopupContainer = connect(store => ({
   token: store.token,
+  tabs: store.tabs,
 }))(Popup);
