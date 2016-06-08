@@ -5,6 +5,38 @@ import throat from 'throat';
 
 const pinboardLimiter = throat(2);
 
+const tagBlacklist = [
+  'ifttt',
+  'twitter',
+  'facebook',
+  'WSH',
+  'twitterlink',
+  '@autoreleasepool',
+  '@codepo8',
+  'Aiviq',
+  'buffer',
+  'IFTTT',
+  'Pocket',
+  'Unread',
+  'Instapaper',
+  'Feedly',
+];
+
+function scrubTags(tagArray) {
+  const tags = new Set(tagArray);
+  // didn't want to blanket remove 1960s
+  if (tags.has('@codepo8')) {
+    tags.delete('1960s');
+    tags.delete('objective-c');
+  }
+
+  for (const blacklisted of tagBlacklist) {
+    tags.delete(blacklisted);
+  }
+
+  return Array.from(tags);
+}
+
 function pinboard(path, queryArg={}) {
   const query = {
     format: 'json',
@@ -121,7 +153,7 @@ export function pinboardSave(token, { url, title }) {
     invariant(suggest.length == 2, msg);
     invariant('popular' in suggest[0], msg);
     invariant('recommended' in suggest[1], msg);
-    const recommended = suggest[1].recommended;
+    const recommended = scrubTags(suggest[1].recommended);
     return pinboard('/posts/add', {
       auth_token: token,
       url,
