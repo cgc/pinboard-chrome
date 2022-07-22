@@ -2,35 +2,33 @@
   "name": "pinboard-chrome",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "targets": {
+    "default": {
+      "source": "src/index.html",
+      "publicUrl": "/dist"
+    }
+  },
   "scripts": {
-    "dev": "webpack --progress --colors --watch",
-    "build": "webpack --progress --colors",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "parcel serve",
+    "build": "parcel build"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "babel-core": "^6.9.1",
-    "babel-loader": "^6.2.4",
-    "babel-plugin-transform-es2015-destructuring": "^6.9.0",
-    "babel-plugin-transform-es2015-modules-commonjs": "^6.8.0",
-    "babel-plugin-transform-es2015-shorthand-properties": "^6.8.0",
-    "babel-plugin-transform-object-rest-spread": "^6.8.0",
-    "babel-preset-react": "^6.5.0",
-    "hjs-webpack": "^8.2.0",
-    "webpack": "^1.13.1"
+    "eslint": "^8.20.0",
+    "eslint-plugin-react": "^7.30.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "parcel": "^2.6.2",
+    "process": "^0.11.10",
+    "querystring-es3": "^0.2.1"
   },
   "dependencies": {
-    "invariant": "^2.2.1",
+    "invariant": "^2.2.4",
     "open-iconic": "^1.1.1",
-    "react": "^15.1.0",
-    "react-dom": "^15.1.0",
-    "react-redux": "^4.4.5",
-    "reduce-reducers": "^0.1.2",
-    "redux": "^3.5.2",
-    "redux-actions": "^0.9.1",
-    "redux-thunk": "^2.1.0",
-    "throat": "^3.0.0"
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-async": "^10.0.1",
+    "react-dom": "^18.2.0",
+    "throat": "^6.0.1"
   }
 }

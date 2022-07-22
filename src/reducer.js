@@ -1,8 +1,33 @@
-import { createAction, handleAction, handleActions } from 'redux-actions';
-import reduceReducers from 'reduce-reducers';
-import invariant from 'invariant';
+function makeReducer(kv) {
+  function reducer(state, action) {
+    const fn = kv[action.type];
+    if (fn) {
+      return fn(state, action);
+    } else {
+      throw new Error();
+    }
+  }
+  function makeAction(type) {
+    return function(payload) {
+      return {type, payload};
+    };
+  }
+  for (const key of Object.keys(kv)) {
+    reducer[key] = makeAction(key);
+  }
+  return reducer;
+}
 
-const reducer = handleActions({
+export function init() {
+    return {
+        loginLoading: false,
+        urlLoading: false,
+        savedURLs: {},
+        savedAll: false,
+    };
+}
+
+export const reducer = makeReducer({
   LOGIN(state, action) {
     return {
       ...state,
@@ -53,11 +78,4 @@ const reducer = handleActions({
       savedAll: true,
     };
   },
-}, {
-  loginLoading: false,
-  urlLoading: false,
-  savedURLs: {},
-  savedAll: false,
 });
-
-export default reducer;

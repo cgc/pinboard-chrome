@@ -1,6 +1,7 @@
-import React, { PropTypes } from 'react';
-import { connect } from 'react-redux';
-import { login, fetchActiveTabStatus, saveAll, saveActiveTab } from './actions';
+import React, { useEffect, useState, useContext, useReducer, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { init, reducer } from './reducer';
+import { fetchActiveTabStatus, loadTabState, login, saveActiveTab, saveAll } from './actions';
 
 const styles = {
   main: {
@@ -9,121 +10,104 @@ const styles = {
   },
 };
 
-const Login = React.createClass({
-  propTypes: {
-    login: PropTypes.func.isRequired,
-    loginLoading: PropTypes.bool.isRequired,
-  },
+function Login({
+  loginLoading,
+}) {
+  const [token, setToken] = useState('');
+  const dispatch = useContext(DispatchContext);
 
-  getInitialState() {
-    return {
-      token: '',
-    };
-  },
+  const loginLabel = loginLoading ? '...' : 'login';
+  return (<div>
+    <input placeholder='auth token' type="text" onChange={ (e) => setToken(e.target.value) } value={ token } />
+    <button onClick={ (e) => dispatch(login(token)) } disabled={ loginLoading }>{ loginLabel }</button>
+  </div>);
+}
 
-  onTokenUpdate(e) {
-    this.setState({
-      token: e.target.value,
-    });
-  },
+Login.propTypes = {
+  loginLoading: PropTypes.bool.isRequired,
+};
 
-  submit() {
-    this.props.login(this.state.token);
-  },
-
-  render() {
-    const loginLabel = this.props.loginLoading ? '...' : 'login';
-    return (<div>
-      <input type="text" onChange={ this.onTokenUpdate } value={ this.state.token } />
-      <button onClick={ this.submit } disabled={ this.props.loginLoading }>{ loginLabel }</button>
-    </div>);
-  },
-});
-
-const WrappedLogin = connect(store => ({
-  loginLoading: Boolean(store.loginLoading),
-}), dispatch => ({
-  login(token) {
-    dispatch(login(token));
-  },
-}))(Login);
-
-const Bookmark = React.createClass({
-  propTypes: {
-    saveActiveTab: PropTypes.func.isRequired,
-    saveAll: PropTypes.func.isRequired,
-    fetchActiveTabStatus: PropTypes.func.isRequired,
-    urlLoading: PropTypes.bool.isRequired,
-    activeTabSaved: PropTypes.bool,
-  },
-
-  componentWillMount() {
-    this.props.fetchActiveTabStatus();
-  },
-
-  render() {
-    const {
-      saveActiveTab,
-      saveAll,
-      savedAll,
-      urlLoading,
-      activeTabSaved,
-    } = this.props;
-
-    const saveDisabled = activeTabSaved || urlLoading;
-    const saveLabel = activeTabSaved ? 'saved' : urlLoading ? '...' : 'save';
-
-    const saveAllLabel = savedAll ? 'saved all' : 'save all';
-
-    return (<div>
-      <button onClick={ saveActiveTab } disabled={ saveDisabled }>{ saveLabel }</button>
-      <button onClick={ saveAll } disabled={ savedAll }>{ saveAllLabel }</button>
-    </div>);
-  },
-});
-
-const WrappedBookmark = connect(store => {
-  const activeTab = store.tabs.find(tab => tab.active);
-  return {
-    urlLoading: store.urlLoading,
-    activeTabSaved: store.savedURLs[activeTab.url],
-    savedAll: store.savedAll,
-  };
-}, dispatch => ({
-  fetchActiveTabStatus() {
+function Bookmark({
+  savedAll,
+  urlLoading,
+  savedURLs,
+  tabs,
+}) {
+  const dispatch = useContext(DispatchContext);
+  useEffect(() => {
     dispatch(fetchActiveTabStatus());
-  },
-  saveAll() {
-    dispatch(saveAll());
-  },
-  saveActiveTab() {
-    dispatch(saveActiveTab());
-  },
-}))(Bookmark);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // We explicitly only want these to run once.
 
-const Popup = React.createClass({
-  propTypes: {
-    token: PropTypes.string,
-  },
+  const activeTab = tabs.find(tab => tab.active);
+  const activeTabSaved = savedURLs[activeTab.url];
 
-  render() {
-    let main;
-    const {
-      tabs,
-      token,
-    } = this.props;
-    if (!token) {
-      main = <WrappedLogin />;
-    } else if (!tabs) {
-      main = <div></div>;
-    } else {
-      main = <WrappedBookmark />;
+  const saveDisabled = activeTabSaved || urlLoading;
+  const saveLabel = activeTabSaved ? 'saved' : urlLoading ? '...' : 'save';
+
+  const saveAllLabel = savedAll ? 'saved all' : 'save all';
+
+  return (<div>
+    <button onClick={ () => dispatch(saveActiveTab()) } disabled={ saveDisabled }>{ saveLabel }</button>
+    <button onClick={ () => dispatch(saveAll()) } disabled={ savedAll }>{ saveAllLabel }</button>
+  </div>);
+}
+
+Bookmark.propTypes = {
+  tabs: PropTypes.array.isRequired,
+  savedURLs: PropTypes.object.isRequired,
+  urlLoading: PropTypes.bool.isRequired,
+  savedAll: PropTypes.bool.isRequired,
+};
+
+export function Popup({
+  // eslint-disable-next-line react/prop-types
+  state
+}) {
+  // eslint-disable-next-line react/prop-types
+  const {token, tabs, savedAll, urlLoading, savedURLs, loginLoading} = state;
+  let main;
+  if (!token) {
+    main = <Login loginLoading={loginLoading} />;
+  } else if (!tabs) {
+    main = <div></div>;
+  } else {
+    main = <Bookmark tabs={tabs} savedAll={savedAll} urlLoading={urlLoading} savedURLs={savedURLs} />;
+  }
+  return <div style={ styles.main }>{ main }</div>;
+}
+
+const DispatchContext = React.createContext(null);
+
+function useReducer2(reducer, initialValue) {
+  const [state, dispatchOrig] = useReducer(reducer, initialValue);
+  dispatchOrig._state = state;
+  const dispatch = useMemo(() => function dispatch(fn) {
+    // This is a bit of a hack to get an interface that's like redux/redux-thunk
+    // In particular, I'm storing a reference to latest state on re-renders so the below call
+    // can always be up-to-date.
+    // HACK: I'm not entirely sure this memoization is working correctly...
+    return fn instanceof Function ? fn(dispatch, () => dispatchOrig._state) : dispatchOrig(fn);
+  }, [dispatchOrig]);
+  return [state, dispatch];
+}
+
+export function App() {
+  const [state, dispatch] = useReducer2(reducer, init());
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      dispatch(reducer.LOGIN(storedToken));
     }
-    return <div style={ styles.main }>{ main }</div>;
-  },
-});
 
-export const PopupContainer = connect(store => ({
-  token: store.token,
-  tabs: store.tabs,
-}))(Popup);
+    dispatch(loadTabState());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // We explicitly only want these to run once.
+
+  return (
+    <DispatchContext.Provider value={dispatch}>
+      <Popup state={state} />
+    </DispatchContext.Provider>
+  );
+}
