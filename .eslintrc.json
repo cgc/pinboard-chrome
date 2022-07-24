@@ -20,6 +20,6 @@
         "react-hooks"
     ],
     "rules": {
-        "no-unused-vars": ["error", { "args": "none" }]
+        "no-unused-vars": ["error", { "args": "none", "destructuredArrayIgnorePattern": "^_"  }]
     }
 }

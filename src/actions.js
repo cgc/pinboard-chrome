@@ -68,7 +68,7 @@ async function pinboard(path, queryArg={}) {
   return body;
 }
 
-export async function pinboardSave(token, { url, title }) {
+export async function pinboardPostsSuggest(token, url, {dispatch}={}) {
   const suggest = await pinboard('/posts/suggest', {
     auth_token: token,
     url: url,
@@ -77,14 +77,36 @@ export async function pinboardSave(token, { url, title }) {
   invariant(suggest.length == 2, msg);
   invariant('popular' in suggest[0], msg);
   invariant('recommended' in suggest[1], msg);
-  const recommended = scrubTags(suggest[1].recommended);
-  return await pinboard('/posts/add', {
+  const scrubbed = scrubTags(suggest[1].recommended);
+  const rv = {
+    response: {
+      popular: suggest[0].popular,
+      recommended: suggest[1].recommended,
+    },
+    scrubbed,
+  };
+  if (dispatch) {
+    // NOTE we only do this for the active tab
+    dispatch(reducer.SUGGESTED_TAGS(rv));
+  }
+  return rv;
+}
+
+export function pinboardPostsSuggestForDispatch(url) {
+  return async function(dispatch, getState) {
+    const {token} = getState();
+    await pinboardPostsSuggest(token, url, {dispatch});
+  };
+}
+
+export async function pinboardPostsAdd(token, { url, title, tags }) {
+  await pinboard('/posts/add', {
     auth_token: token,
     url,
     description: title,
-    tags: recommended.join(','),
-    replace: 'no',
+    tags: tags,
   });
+  return { url, tags, time: new Date().toISOString() };
 }
 
 async function tokenValid(token) {
@@ -94,12 +116,13 @@ async function tokenValid(token) {
   return response.status === 200;
 }
 
-async function hasPosts(token, url) {
+async function pinboardPostsGet(token, url) {
   const body = await pinboard('/posts/get', {
     auth_token: token,
     url: url,
   });
-  return Boolean(body.posts.length);
+  // Picking an arbitrary post to make things simpler...
+  return body.posts && body.posts[0];
 }
 
 async function loading(dispatch, stateKey, promise) {
@@ -128,15 +151,10 @@ export function login(token) {
 }
 
 export function loadTabState() {
-  return (dispatch) => {
-    chrome.tabs.query({currentWindow: true}, function(tabs) {
-      dispatch(reducer.LOAD_TAB_STATE(tabs.map(tab => ({
-        id: tab.id,
-        url: tab.url,
-        title: tab.title,
-        active: tab.active,
-      }))));
-    });
+  return async (dispatch) => {
+    const tabs = await new Promise(resolve => chrome.tabs.query({currentWindow: true}, resolve));
+    dispatch(reducer.LOAD_TAB_STATE(tabs.map(
+      ({id, url, title, active}) => ({id, url, title, active}))));
   };
 }
 
@@ -146,12 +164,12 @@ export function fetchURLSavedStatus(url) {
     if (url in savedURLs) {
       return savedURLs[url];
     }
-    const urlHasPosts = await loading(dispatch, 'urlLoading', hasPosts(token, url));
-    dispatch(reducer.HAS_POSTS({
+    const post = await loading(dispatch, 'urlLoading', pinboardPostsGet(token, url));
+    dispatch(reducer.UPDATE_POSTS_CACHE({
       url: url,
-      saved: urlHasPosts,
+      saved: post,
     }));
-    return urlHasPosts;
+    return post;
   };
 }
 
@@ -163,27 +181,50 @@ export function fetchActiveTabStatus() {
   };
 }
 
+export function saveTab({ url, title }, tags) {
+  return async (dispatch, getState) => {
+    const { token, activeTab } = getState();
+
+    if (!tags) {
+      invariant(url != activeTab.url, 'active tab should use tags on page');
+      // We don't pass dispatch() in since that would overwrite state.tags
+      const suggest = await pinboardPostsSuggest(token, url);
+      tags = suggest.scrubbed.join(' ');
+    }
+    const response = await loading(dispatch, 'urlLoading', pinboardPostsAdd(token, { url, title, tags }));
+    dispatch(reducer.UPDATE_POSTS_CACHE({
+      url: url,
+      saved: response,
+    }));
+  };
+}
+
 export function saveActiveTab() {
   return async (dispatch, getState) => {
-    const { token, tabs } = getState();
-    const tab = tabs.find(tab => tab.active);
-    await loading(dispatch, 'urlLoading', pinboardSave(token, tab));
-    dispatch(reducer.HAS_POSTS({
-      url: tab.url,
-      saved: true,
-    }));
+    const { activeTab, tags } = getState();
+    await dispatch(saveTab(activeTab, tags));
   };
 }
 
 export function saveAll() {
   return async (dispatch, getState) => {
-    const { token, tabs } = getState();
+    const { tabs, activeTab } = getState();
     const saves = tabs.map(async tab => {
-      const hasPosts = await dispatch(fetchURLSavedStatus(tab.url));
-      if (hasPosts) {
+      const post = await dispatch(fetchURLSavedStatus(tab.url));
+
+      if (activeTab.url == tab.url) {
+        const { tags } = getState();
+        if (post?.tags == tags) {
+          return;
+        }
+        await dispatch(saveActiveTab());
         return;
       }
-      return await pinboardSave(token, tab);
+
+      if (post) {
+        return;
+      }
+      await dispatch(saveTab(tab));
     });
     await loading(dispatch, 'urlLoading', Promise.all(saves));
     dispatch(reducer.SAVED_ALL());

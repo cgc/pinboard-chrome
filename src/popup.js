@@ -1,20 +1,15 @@
-import React, { useEffect, useState, useContext, useReducer, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { init, reducer } from './reducer';
-import { fetchActiveTabStatus, loadTabState, login, saveActiveTab, saveAll } from './actions';
-
-const styles = {
-  main: {
-    minWidth: 100,
-    minHeight: 50,
-  },
-};
+import { fetchActiveTabStatus, loadTabState, login, pinboardPostsSuggestForDispatch, saveActiveTab, saveAll } from './actions';
+import { Store, StoreProvider, useDispatch, useStoreState } from './store';
+import styled, { css } from 'styled-components';
 
 function Login({
   loginLoading,
 }) {
   const [token, setToken] = useState('');
-  const dispatch = useContext(DispatchContext);
+  const dispatch = useDispatch();
 
   const loginLabel = loginLoading ? '...' : 'login';
   return (<div>
@@ -27,23 +22,109 @@ Login.propTypes = {
   loginLoading: PropTypes.bool.isRequired,
 };
 
+const TagLabel = styled.label`
+padding: 2px;
+margin: 2px;
+border-radius: 3px;
+line-height: 1.4rem;
+cursor: pointer;
+
+& input[type=checkbox] {
+  margin-top: 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+&:hover {
+  background: rgb(0, 0, 0, 0.1);
+}
+
+${props => props.hasTag && css`
+  background: rgb(0, 0, 0, 0.2);
+`}
+`;
+
+function Tag({ tag, hasTag, addTag, removeTag }) {
+  return (
+    <TagLabel hasTag={hasTag}>
+      <input type="checkbox" checked={hasTag} onChange={((e) => e.target.checked ? addTag(tag) : removeTag(tag))} />
+      {tag}
+    </TagLabel>
+  );
+}
+
+Tag.propTypes = {
+  tag: PropTypes.string.isRequired,
+  hasTag: PropTypes.bool.isRequired,
+  addTag: PropTypes.func.isRequired,
+  removeTag: PropTypes.func.isRequired,
+};
+
+function Tags({
+  suggestedTags,
+  tags,
+}) {
+  const dispatch = useDispatch();
+
+  function hasTag(tag) {
+    return new RegExp('\\b' + tag + '\\b').test(tags);
+  }
+  function addTag(tag) {
+    if (!hasTag(tag)) {
+      dispatch(reducer.UPDATE_TAGS([tags, tag].join(' ')));
+    }
+  }
+  function removeTag(tag) {
+    if (hasTag(tag)) {
+      dispatch(reducer.UPDATE_TAGS(
+        tags.replaceAll(new RegExp(' ?\\b' + tag + '\\b', 'g'), '').trim()
+      ));
+    }
+  }
+  const sugg = suggestedTags ? <>
+    <p>
+      <b>popular tags</b> {suggestedTags.response.popular.map(t => <Tag key={t} tag={t} hasTag={hasTag(t)} addTag={addTag} removeTag={removeTag} />)}
+    </p>
+    <p>
+      <b>recommended tags</b> {suggestedTags.response.recommended.map(t => <Tag key={t} tag={t} hasTag={hasTag(t)} addTag={addTag} removeTag={removeTag} />)}
+    </p>
+  </> : 'Loading tags...';
+  return <div>
+    <textarea rows={4} cols={40} value={tags || ''} onChange={e => dispatch(reducer.UPDATE_TAGS(e.target.value))} />
+    {sugg}
+  </div>;
+}
+
+Tags.propTypes = {
+  tags: PropTypes.string,
+  suggestedTags: PropTypes.shape({
+    response: PropTypes.shape({
+      popular: PropTypes.arrayOf(PropTypes.string),
+      recommended: PropTypes.arrayOf(PropTypes.string),
+    }),
+  }),
+};
+
 function Bookmark({
   savedAll,
   urlLoading,
-  savedURLs,
-  tabs,
+  pinboardPost,
+  tags,
 }) {
-  const dispatch = useContext(DispatchContext);
-  useEffect(() => {
-    dispatch(fetchActiveTabStatus());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // We explicitly only want these to run once.
+  const dispatch = useDispatch();
 
-  const activeTab = tabs.find(tab => tab.active);
-  const activeTabSaved = savedURLs[activeTab.url];
-
-  const saveDisabled = activeTabSaved || urlLoading;
-  const saveLabel = activeTabSaved ? 'saved' : urlLoading ? '...' : 'save';
+  const needsUpdate = pinboardPost && tags != pinboardPost.tags;
+  let saveDisabled, saveLabel;
+  if (urlLoading) {
+    saveDisabled = true;
+    saveLabel = '...';
+  } else if (pinboardPost && !needsUpdate) {
+    saveDisabled = true;
+    saveLabel = 'saved';
+  } else {
+    saveDisabled = false;
+    saveLabel = needsUpdate ? 'update' : 'save';
+  }
 
   const saveAllLabel = savedAll ? 'saved all' : 'save all';
 
@@ -54,60 +135,57 @@ function Bookmark({
 }
 
 Bookmark.propTypes = {
-  tabs: PropTypes.array.isRequired,
-  savedURLs: PropTypes.object.isRequired,
   urlLoading: PropTypes.bool.isRequired,
   savedAll: PropTypes.bool.isRequired,
+  pinboardPost: PropTypes.object,
+  tags: PropTypes.string,
 };
 
-export function Popup({
-  // eslint-disable-next-line react/prop-types
-  state
-}) {
-  // eslint-disable-next-line react/prop-types
-  const {token, tabs, savedAll, urlLoading, savedURLs, loginLoading} = state;
-  let main;
+export function Popup() {
+  const state = useStoreState();
+  const {token, tabs, savedAll, urlLoading, savedURLs, loginLoading, tagsLoading, activeTab, suggestedTags, tags} = state;
+
   if (!token) {
-    main = <Login loginLoading={loginLoading} />;
-  } else if (!tabs) {
-    main = <div></div>;
-  } else {
-    main = <Bookmark tabs={tabs} savedAll={savedAll} urlLoading={urlLoading} savedURLs={savedURLs} />;
+    return <Login loginLoading={loginLoading} />;
   }
-  return <div style={ styles.main }>{ main }</div>;
+
+  if (!tabs) {
+    return <div></div>;
+  }
+
+  const pinboardPost = savedURLs[activeTab.url];
+  return <>
+    {pinboardPost && `Saved on ${new Date(pinboardPost.time).toLocaleDateString()}`}
+    <Bookmark activeTab={activeTab} savedAll={savedAll} urlLoading={urlLoading} savedURLs={savedURLs} tags={tags} pinboardPost={pinboardPost} />
+    <Tags tagsLoading={tagsLoading} pinboardPost={pinboardPost} suggestedTags={suggestedTags} activeTab={activeTab} tags={tags} />
+  </>;
 }
 
-const DispatchContext = React.createContext(null);
+const store = new Store(reducer, init());
 
-function useReducer2(reducer, initialValue) {
-  const [state, dispatchOrig] = useReducer(reducer, initialValue);
-  dispatchOrig._state = state;
-  const dispatch = useMemo(() => function dispatch(fn) {
-    // This is a bit of a hack to get an interface that's like redux/redux-thunk
-    // In particular, I'm storing a reference to latest state on re-renders so the below call
-    // can always be up-to-date.
-    // HACK: I'm not entirely sure this memoization is working correctly...
-    return fn instanceof Function ? fn(dispatch, () => dispatchOrig._state) : dispatchOrig(fn);
-  }, [dispatchOrig]);
-  return [state, dispatch];
-}
+const Main = styled.div`
+min-width: 350;
+min-height: 150;
+`;
 
 export function App() {
-  const [state, dispatch] = useReducer2(reducer, init());
-
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
-      dispatch(reducer.LOGIN(storedToken));
+      store.dispatch(reducer.LOGIN(storedToken));
     }
-
-    dispatch(loadTabState());
+    async function load(dispatch, getState) {
+      await dispatch(loadTabState());
+      await dispatch(fetchActiveTabStatus());
+      await dispatch(pinboardPostsSuggestForDispatch(getState().activeTab.url));
+    }
+    store.dispatch(load);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // We explicitly only want these to run once.
 
   return (
-    <DispatchContext.Provider value={dispatch}>
-      <Popup state={state} />
-    </DispatchContext.Provider>
+    <StoreProvider store={store}>
+      <Main><Popup /></Main>
+    </StoreProvider>
   );
 }

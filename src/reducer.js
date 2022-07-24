@@ -22,8 +22,10 @@ export function init() {
     return {
         loginLoading: false,
         urlLoading: false,
+        tagsLoading: false,
         savedURLs: {},
         savedAll: false,
+        tags: null,
     };
 }
 
@@ -54,21 +56,49 @@ export const reducer = makeReducer({
     };
   },
 
-  HAS_POSTS(state, action) {
+  UPDATE_POSTS_CACHE(state, action) {
     const { url, saved } = action.payload;
-    return {
+    if (!saved) {
+      return state;
+    }
+    const rv = {
       ...state,
       savedURLs: {
         ...state.savedURLs,
         [url]: saved,
       },
     };
+    if (url == state.activeTab?.url) {
+      rv.tags = saved.tags;
+    }
+    return rv;
+  },
+
+  UPDATE_TAGS(state, action) {
+    return {
+      ...state,
+      tags: action.payload,
+    };
+  },
+
+  SUGGESTED_TAGS(state, action) {
+    const rv = {
+      ...state,
+      suggestedTags: action.payload,
+    };
+    // This fills them in for an unsaved post.
+    if (state.tags == null) {
+      rv.tags = action.payload.scrubbed.join(' ');
+    }
+    return rv;
   },
 
   LOAD_TAB_STATE(state, action) {
+    const tabs = action.payload;
     return {
       ...state,
-      tabs: action.payload,
+      tabs,
+      activeTab: tabs.find(tab => tab.active),
     };
   },
 
