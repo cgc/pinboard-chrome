@@ -185,7 +185,7 @@ export function saveTab({ url, title }, tags) {
   return async (dispatch, getState) => {
     const { token, activeTab } = getState();
 
-    if (!tags) {
+    if (tags == null) {
       invariant(url != activeTab.url, 'active tab should use tags on page');
       // We don't pass dispatch() in since that would overwrite state.tags
       const suggest = await pinboardPostsSuggest(token, url);
